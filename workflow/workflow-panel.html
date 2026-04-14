@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>驾驭工程 (Harnessing Engineering) 工作流全景解析</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+
+        /* <!-- Chosen Palette: Warm Neutral Harmony (Stone background, Blue for Human, Indigo for AI) --> */
+
+        /* <!-- Application Structure Plan: A split-pane dashboard. Left pane serves as a progressive timeline navigation representing the 5 steps. Right pane acts as a dynamic content display, showing specific Human vs AI tasks, data flow (inputs/outputs), and a contextual chart visualizing effort distribution. This structure allows users to explore the linear SOP while deeply examining the shifting balance of human/machine collaboration at each stage without overwhelming them with text. --> */
+
+        /* <!-- Visualization & Content Choices: 1. Goal: Compare Human vs AI effort across stages. Viz: Stacked Bar Chart (Chart.js). Interaction: Updates highlight based on selected step. Justification: Clearly shows the core philosophy of 'mind power vs compute power' shifting over time. 2. Goal: Show data flow. Viz: CSS-styled block grids. Interaction: Dynamic text updates. Justification: Makes file naming conventions (1.1, 2.1) easy to trace. Library: Vanilla JS + Tailwind + Chart.js. --> */
+
+        /* <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. --> */
+
+        body {
+
+            background-color: #fcfbf9;
+
+            color: #292524;
+
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+
+            display: none;
+
+        }
+
+        .hide-scrollbar {
+
+            -ms-overflow-style: none;
+
+            scrollbar-width: none;
+
+        }
+
+        .chart-container {
+
+            position: relative;
+
+            width: 100%;
+
+            max-width: 800px;
+
+            margin-left: auto;
+
+            margin-right: auto;
+
+            height: 40vh;
+
+            max-height: 350px;
+
+        }
+
+        @media (max-width: 768px) {
+
+            .chart-container {
+
+                height: 300px;
+
+            }
+
+        }
+
+        .step-item {
+
+            transition: all 0.3s ease;
+
+        }
+
+        .step-item.active {
+
+            background-color: #ffffff;
+
+            border-left: 4px solid #3b82f6;
+
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+
+            transform: translateX(4px);
+
+        }
+
+        .badge-human { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+        .badge-ai { background-color: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+
+        .badge-file { background-color: #f5f5f4; color: #44403c; border: 1px solid #d6d3d1; font-family: monospace; }
+
+        .badge-skill { background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; font-family: monospace; }
+
+    </style>
+
+</head>
+
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-white border-b border-stone-200 px-6 py-4 flex-shrink-0 z-10 shadow-sm">
+
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+
+            <div>
+
+                <h1 class="text-2xl font-bold text-stone-800 tracking-tight">驾驭工程 <span class="font-light text-stone-500">| Harnessing Engineering</span></h1>
+
+                <p class="text-sm text-stone-500 mt-1">人机协同内容生成标准工作流 SOP</p>
+
+            </div>
+
+            <div class="flex gap-4 text-sm font-medium">
+
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-500"></span> 👤 人类心力</div>
+
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-orange-500"></span> 🤖 Agent算力</div>
+
+            </div>
+
+        </div>
+
+    </header>
+
+    <main class="flex-1 overflow-hidden flex flex-col lg:flex-row max-w-7xl mx-auto w-full">
+
+        <aside class="w-full lg:w-1/3 bg-stone-50 border-r border-stone-200 overflow-y-auto hide-scrollbar flex-shrink-0 flex flex-col">
+
+            <div class="p-6 pb-2">
+
+                <h2 class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-4">流程导航</h2>
+
+                <p class="text-sm text-stone-600 mb-6 leading-relaxed">
+
+                    内容创作不再是单向的“人类写作”或“AI生成”，而是一条精密的工业化流水线。点击下方步骤探索详细流转。
+
+                </p>
+
+            </div>
+
+            <div id="step-nav-container" class="px-4 pb-8 flex-1 flex flex-col gap-2">
+
+            </div>
+
+        </aside>
+
+        <section class="w-full lg:w-2/3 bg-white overflow-y-auto hide-scrollbar relative">
+
+            <div class="p-6 lg:p-10 max-w-4xl mx-auto">
+
+                <div id="intro-section" class="mb-10">
+
+                    <div class="inline-block px-3 py-1 rounded-full bg-stone-100 text-stone-600 text-xs font-bold mb-4 tracking-wider uppercase" id="detail-phase-tag">
+
+                        阶段目标
+
+                    </div>
+
+                    <h2 class="text-3xl font-bold text-stone-800 mb-4" id="detail-title">选择左侧步骤查看详情</h2>
+
+                    <p class="text-lg text-stone-600 leading-relaxed" id="detail-goal">
+
+                        通过将人类意图（心力）与AI运算（算力）严格分离与协同，实现完全工程化的知识产出。
+
+                    </p>
+
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10" id="action-cards">
+
+                    <div class="bg-blue-50 rounded-xl p-6 border border-blue-100 hidden" id="human-card">
+
+                        <h3 class="font-bold text-blue-800 text-lg mb-4 flex items-center gap-2">👤 人类动作 (心力)</h3>
+
+                        <ul class="space-y-3 text-sm text-blue-900" id="human-tasks">
+
+                        </ul>
+
+                    </div>
+
+                    <div class="bg-orange-50 rounded-xl p-6 border border-orange-100 hidden" id="ai-card">
+
+                        <h3 class="font-bold text-orange-800 text-lg mb-4 flex items-center gap-2">🤖 Agent 动作 (算力)</h3>
+
+                        <ul class="space-y-3 text-sm text-orange-900 mb-4" id="ai-tasks">
+
+                        </ul>
+
+                        <div id="ai-skills-container" class="mt-4 pt-4 border-t border-orange-200/50">
+
+                            <span class="text-xs font-bold text-orange-400 uppercase tracking-wider block mb-2">调用技能 (Skill)</span>
+
+                            <div class="flex flex-wrap gap-2" id="ai-skills">
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="mb-12 bg-stone-50 rounded-xl p-6 border border-stone-200" id="data-flow-section" style="display: none;">
+
+                    <h3 class="font-bold text-stone-700 text-lg mb-6 flex items-center gap-2">📦 数据流转与产出规范</h3>
+
+                    <div class="flex flex-col md:flex-row items-center gap-4 justify-between">
+
+                        <div class="flex-1 w-full bg-white p-4 rounded-lg border border-stone-200 shadow-sm min-h-[100px]">
+
+                            <span class="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-2">输入 (Input)</span>
+
+                            <div class="flex flex-wrap gap-2" id="data-inputs"></div>
+
+                        </div>
+
+                        <div class="hidden md:block text-stone-300 text-2xl font-bold">➔</div>
+
+                        <div class="md:hidden text-stone-300 text-2xl font-bold rotate-90 my-2">➔</div>
+
+                        <div class="flex-1 w-full bg-white p-4 rounded-lg border border-stone-200 shadow-sm min-h-[100px] border-l-4 border-l-green-400">
+
+                            <span class="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-2">标准输出 (Output)</span>
+
+                            <div class="flex flex-wrap gap-2 flex-col" id="data-outputs"></div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="mt-12 pt-8 border-t border-stone-100">
+
+                    <div class="mb-6">
+
+                        <h3 class="font-bold text-stone-800 text-xl">全流程心力与算力投入比分析</h3>
+
+                        <p class="text-sm text-stone-500 mt-1">展示在不同阶段，人类主观判断与AI运算强度的动态平衡。</p>
+
+                    </div>
+
+                    <div class="chart-container">
+
+                        <canvas id="effortChart"></canvas>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <script>
+
+        const workflowData = [
+
+            {
+
+                id: 1,
+
+                phase: "1.x 阶段",
+
+                title: "Step 1. 意图定调 (消化与构思)",
+
+                shortTitle: "S1. 意图定调",
+
+                goal: "将模糊的外部需求，转化为具有个人意志和初步解法的核心创意。本阶段完全由人类主导，Agent 处于待命状态。",
+
+                humanEffort: 95,
+
+                aiEffort: 5,
+
+                inputs: ["外部/甲方的原始需求 (语音/简报等)"],
+
+                humanTasks: [
+
+                    "<strong>需求整理：</strong> 消化原始需求，明确边界，手写整理出标准化的需求文档。",
+
+                    "<strong>响应构思：</strong> 思考“我该怎么做”，纯主观手写关于如何响应这个需求的项目初步创意。"
+
+                ],
+
+                aiTasks: ["无（等待人类完成意图注入）。"],
+
+                skills: [],
+
+                outputs: ["1.1-Requirement (需求文档)", "1.2-Ideation (项目创意文档)"]
+
+            },
+
+            {
+
+                id: 2,
+
+                phase: "2.x 阶段",
+
+                title: "Step 2. 框架分析 (系统骨架生成)",
+
+                shortTitle: "S2. 框架分析",
+
+                goal: "将人类粗颗粒度的“创意”，转化为系统化、结构化的“项目框架”。",
+
+                humanEffort: 20,
+
+                aiEffort: 80,
+
+                inputs: ["1.2-Ideation"],
+
+                humanTasks: [
+
+                    "向 Agent 下发设计指令，提供创意文档作为核心上下文。"
+
+                ],
+
+                aiTasks: [
+
+                    "<strong>执行逻辑：</strong> 基于人类创意，进行结构化剖析，搭建课程/项目的骨架设计书。"
+
+                ],
+
+                skills: ["theo-aiedu-analysis"],
+
+                outputs: ["2.1-framework (项目架构设计书)"]
+
+            },
+
+            {
+
+                id: 3,
+
+                phase: "2.x 阶段",
+
+                title: "Step 3. 专项研究 (模块化头脑风暴)",
+
+                shortTitle: "S3. 专项研究",
+
+                goal: "释放 Agent 算力，针对架构中的每一个节点进行穷尽式的内容发散、案例搜集与深度研究。",
+
+                humanEffort: 15,
+
+                aiEffort: 85,
+
+                inputs: ["2.1-framework"],
+
+                humanTasks: [
+
+                    "引导与监控，指令 Agent 严格按照架构书逐个模块展开研究。"
+
+                ],
+
+                aiTasks: [
+
+                    "<strong>执行逻辑：</strong> 针对架构设计书中的每一个问题和知识点，全网检索、深度发散，生成海量的研究素材库。"
+
+                ],
+
+                skills: ["theo-aiedu-brainstorm"],
+
+                outputs: ["2.2-brainstorm-fold (专项研究子文档合集)"]
+
+            },
+
+            {
+
+                id: 4,
+
+                phase: "3.x 阶段",
+
+                title: "Step 4. 收敛叙事 (驾驭循环核心区)",
+
+                shortTitle: "S4. 收敛叙事",
+
+                goal: "克服信息过载，将散乱的素材基于最初的意图强行收敛，并通过“评价-修改”的循环打磨出最终讲稿。这是最吃“心力”的一环。",
+
+                humanEffort: 75,
+
+                aiEffort: 25,
+
+                inputs: ["1.2-Ideation", "2.1-framework", "2.2-brainstorm-fold"],
+
+                humanTasks: [
+
+                    "<strong>驾驭循环 (Loop)：</strong> 提供主观的严厉评价、逻辑审查（“这里不够抓人”、“案例太旧”）。",
+
+                    "持续指令 Agent 修改迭代，直至达到交付标准。"
+
+                ],
+
+                aiTasks: [
+
+                    "<strong>初稿生成：</strong> 融合所有输入上下文，强行收敛出讲课的基本叙事逻辑和初稿 (3.1-script-raft)。",
+
+                    "响应人类的反馈，持续修改、删减、迭代文本。"
+
+                ],
+
+                skills: ["theo-aiedu-try"],
+
+                outputs: ["3.1-script-raft-v1.0 (中间输出)", "3.2-script-final (确定的最终讲课口语稿)"]
+
+            },
+
+            {
+
+                id: 5,
+
+                phase: "3.x 阶段",
+
+                title: "Step 5. 自动化交付 (全模态物料生成)",
+
+                shortTitle: "S5. 自动化交付",
+
+                goal: "核心工作（文本与灵魂）已完成，将文本转化为多模态物理交付物的苦力活全部交给 AI。",
+
+                humanEffort: 10,
+
+                aiEffort: 90,
+
+                inputs: ["3.2-script-final"],
+
+                humanTasks: [
+
+                    "验收最终成果，准备登台或发布。"
+
+                ],
+
+                aiTasks: [
+
+                    "根据指令进行格式转化，生成最终物料。"
+
+                ],
+
+                skills: ["theo-aiedu-output-ppt", "theo-aiedu-output-website", "theo-aiedu-output-card"],
+
+                outputs: ["讲课 PPT 脚本/代码", "配套演示网站 (HTML/React)", "知识卡片或分发清单"]
+
+            }
+
+        ];
+
+        let effortChartInstance = null;
+
+        let currentStepId = 1;
+
+        function initNav() {
+
+            const container = document.getElementById('step-nav-container');
+
+            workflowData.forEach((step, index) => {
+
+                const isLast = index === workflowData.length - 1;
+
+                const btn = document.createElement('button');
+
+                btn.className = `step-item w-full text-left p-4 rounded-xl border border-transparent hover:bg-stone-100 flex flex-col gap-1 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1`;
+
+                btn.id = `nav-btn-${step.id}`;
+
+                btn.onclick = () => selectStep(step.id);
+
+                btn.innerHTML = `
+
+                    <div class="flex items-center justify-between">
+
+                        <span class="text-xs font-bold ${step.phase.includes('1.') ? 'text-blue-500' : 'text-orange-500'} bg-white px-2 py-0.5 rounded border border-stone-200 shadow-sm">${step.phase}</span>
+
+                    </div>
+
+                    <span class="font-bold text-stone-800 text-[15px] mt-1">${step.shortTitle}</span>
+
+                    <span class="text-xs text-stone-500 line-clamp-1 mt-1">${step.outputs[step.outputs.length-1]}</span>
+
+                `;
+
+                container.appendChild(btn);
+
+                if (!isLast) {
+
+                    const connector = document.createElement('div');
+
+                    connector.className = "w-0.5 h-4 bg-stone-200 ml-6";
+
+                    container.appendChild(connector);
+
+                }
+
+            });
+
+        }
+
+        function selectStep(id) {
+
+            currentStepId = id;
+
+            document.querySelectorAll('.step-item').forEach(el => {
+
+                el.classList.remove('active');
+
+            });
+
+            document.getElementById(`nav-btn-${id}`).classList.add('active');
+
+            const data = workflowData.find(s => s.id === id);
+
+            document.getElementById('detail-phase-tag').textContent = data.phase;
+
+            document.getElementById('detail-title').textContent = data.title;
+
+            document.getElementById('detail-goal').innerHTML = data.goal;
+
+            const humanCard = document.getElementById('human-card');
+
+            const aiCard = document.getElementById('ai-card');
+
+            humanCard.classList.remove('hidden');
+
+            aiCard.classList.remove('hidden');
+
+            document.getElementById('data-flow-section').style.display = 'block';
+
+            document.getElementById('human-tasks').innerHTML = data.humanTasks.map(t => `<li class="flex items-start gap-2"><span class="text-blue-500 mt-0.5">●</span> <span>${t}</span></li>`).join('');
+
+            document.getElementById('ai-tasks').innerHTML = data.aiTasks.map(t => `<li class="flex items-start gap-2"><span class="text-orange-500 mt-0.5">●</span> <span>${t}</span></li>`).join('');
+
+            const skillsContainer = document.getElementById('ai-skills-container');
+
+            const skillsDiv = document.getElementById('ai-skills');
+
+            if (data.skills && data.skills.length > 0) {
+
+                skillsContainer.classList.remove('hidden');
+
+                skillsDiv.innerHTML = data.skills.map(s => `<span class="badge-skill px-2 py-1 rounded text-xs">⚙️ ${s}</span>`).join('');
+
+            } else {
+
+                skillsContainer.classList.add('hidden');
+
+            }
+
+            document.getElementById('data-inputs').innerHTML = data.inputs.map(i => `<span class="badge-file px-2 py-1 rounded text-xs">${i}</span>`).join('');
+
+            document.getElementById('data-outputs').innerHTML = data.outputs.map(o => {
+
+                const isFinal = o.includes('final') || o.includes('PPT') || o.includes('网站');
+
+                return `<span class="badge-file px-3 py-2 rounded text-sm font-medium ${isFinal ? 'bg-stone-800 text-white border-stone-800' : ''}">📄 ${o}</span>`;
+
+            }).join('');
+
+            updateChartHighlight(id);
+
+        }
+
+        function initChart() {
+
+            const ctx = document.getElementById('effortChart').getContext('2d');
+
+            const labels = workflowData.map(d => d.shortTitle);
+
+            const humanData = workflowData.map(d => d.humanEffort);
+
+            const aiData = workflowData.map(d => d.aiEffort);
+
+            effortChartInstance = new Chart(ctx, {
+
+                type: 'bar',
+
+                data: {
+
+                    labels: labels,
+
+                    datasets: [
+
+                        {
+
+                            label: '👤 人类动作比重 (心力)',
+
+                            data: humanData,
+
+                            backgroundColor: '#3b82f6',
+
+                            borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 6, bottomRight: 6 },
+
+                            borderWidth: 0,
+
+                            barPercentage: 0.6
+
+                        },
+
+                        {
+
+                            label: '🤖 Agent 动作比重 (算力)',
+
+                            data: aiData,
+
+                            backgroundColor: '#f97316',
+
+                            borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
+
+                            borderWidth: 0,
+
+                            barPercentage: 0.6
+
+                        }
+
+                    ]
+
+                },
+
+                options: {
+
+                    responsive: true,
+
+                    maintainAspectRatio: false,
+
+                    scales: {
+
+                        x: {
+
+                            stacked: true,
+
+                            grid: { display: false },
+
+                            ticks: {
+
+                                font: { family: "sans-serif", size: 11 },
+
+                                color: '#78716c',
+
+                                maxRotation: 45,
+
+                                minRotation: 0,
+
+                                callback: function(value, index, values) {
+
+                                    const label = this.getLabelForValue(value);
+
+                                    if(window.innerWidth < 768) {
+
+                                        return 'S' + (index + 1);
+
+                                    }
+
+                                    return label;
+
+                                }
+
+                            }
+
+                        },
+
+                        y: {
+
+                            stacked: true,
+
+                            beginAtZero: true,
+
+                            max: 100,
+
+                            grid: { color: '#f5f5f4', drawBorder: false },
+
+                            ticks: {
+
+                                callback: function(value) { return value + '%'; },
+
+                                color: '#a8a29e',
+
+                                font: { size: 11 }
+
+                            }
+
+                        }
+
+                    },
+
+                    plugins: {
+
+                        legend: {
+
+                            position: 'top',
+
+                            align: 'end',
+
+                            labels: { usePointStyle: true, boxWidth: 8, font: { size: 12, family: "sans-serif" }, color: '#57534e' }
+
+                        },
+
+                        tooltip: {
+
+                            backgroundColor: 'rgba(28, 25, 23, 0.9)',
+
+                            titleFont: { size: 13 },
+
+                            bodyFont: { size: 13 },
+
+                            padding: 10,
+
+                            cornerRadius: 8,
+
+                            callbacks: {
+
+                                label: function(context) {
+
+                                    return context.dataset.label + ': ' + context.parsed.y + '%';
+
+                                }
+
+                            }
+
+                        }
+
+                    },
+
+                    animation: {
+
+                        duration: 800,
+
+                        easing: 'easeOutQuart'
+
+                    }
+
+                }
+
+            });
+
+        }
+
+        function updateChartHighlight(activeId) {
+
+            if (!effortChartInstance) return;
+
+            const activeIndex = workflowData.findIndex(s => s.id === activeId);
+
+            effortChartInstance.data.datasets[0].backgroundColor = workflowData.map((_, i) =>
+
+                i === activeIndex ? '#2563eb' : '#bfdbfe'
+
+            );
+
+            effortChartInstance.data.datasets[1].backgroundColor = workflowData.map((_, i) =>
+
+                i === activeIndex ? '#ea580c' : '#fed7aa'
+
+            );
+
+            effortChartInstance.update();
+
+        }
+
+        window.addEventListener('resize', () => {
+
+             if(effortChartInstance) {
+
+                 effortChartInstance.resize();
+
+             }
+
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+
+            initNav();
+
+            initChart();
+
+            selectStep(1);
+
+        });
+
+    </script>
+
+</body>
+
+</html>
