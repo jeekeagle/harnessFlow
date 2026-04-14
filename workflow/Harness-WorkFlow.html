@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>驾驭工程实战工作流 - 终极SOP全景图</title>
+    <style>
+        /* 苹果极简风变量设置 - 颜色更新 */
+        :root {
+            --bg-canvas: #f2f2f7; 
+            --grid-color: rgba(0, 0, 0, 0.04);
+            /* 人类颜色：科技蓝 */
+            --human-main: #007AFF;
+            --human-bg: rgba(0, 122, 255, 0.04);
+            /* Agent颜色：活力橙 */
+            --ai-main: #FF9500;
+            --ai-bg: rgba(255, 149, 0, 0.04);
+            
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --card-bg: #ffffff;
+            --font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+            /* 驾驭循环高亮色：紫红，以区分开 Agent 的橙色 */
+            --accent-loop: #AF52DE; 
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-canvas);
+            color: var(--text-primary);
+            background-image: linear-gradient(var(--grid-color) 1px, transparent 1px),
+                              linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            padding: 40px 20px;
+        }
+
+        /* 顶部画布控制栏 */
+        .canvas-toolbar {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            padding: 10px 24px;
+            border-radius: 100px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            z-index: 1000;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .toolbar-title {
+            font-weight: 600;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot.human { background: var(--human-main); }
+        .dot.ai { background: var(--ai-main); }
+
+        /* 主画布容器 */
+        .canvas-container {
+            max-width: 1200px; /* 增加宽度以容纳左侧标注 */
+            margin: 80px auto 40px;
+            position: relative;
+        }
+
+        /* 中心时间轴 */
+        .timeline-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            /* 240px(左侧) + 剩余宽度的一半 */
+            left: calc(50% + 120px); 
+            width: 4px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.05) 100%);
+            transform: translateX(-50%);
+            z-index: 0;
+        }
+
+        /* 阶段行 - 全新四列网格布局 */
+        .stage-row {
+            display: grid;
+            grid-template-columns: 240px 1fr 60px 1fr;
+            align-items: center;
+            margin-bottom: 70px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ================= 左侧步骤指示与渐进线 ================= */
+        .step-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-right: 15px; /* 给右侧卡片留点空隙 */
+        }
+
+        .step-text {
+            flex-shrink: 0;
+            text-align: left;
+        }
+
+        .step-num {
+            font-family: "SF Mono", Consolas, monospace;
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .step-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 0.5px;
+        }
+
+        .step-line {
+            flex-grow: 1;
+            height: 2px;
+            margin-left: 20px;
+            margin-right: 5px;
+            position: relative;
+            /* 默认蓝色渐进 */
+            --color-line: rgba(0, 122, 255, 0.4);
+            --color-arrow: rgba(0, 122, 255, 0.8);
+            background: linear-gradient(90deg, transparent 0%, var(--color-line) 100%);
+        }
+
+        .step-line::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: -4px;
+            width: 8px;
+            height: 8px;
+            border-top: 2px solid var(--color-arrow);
+            border-right: 2px solid var(--color-arrow);
+            transform: rotate(45deg);
+        }
+
+        /* 针对不同阶段的渐进线颜色重置 */
+        .stage-row.loop-stage .step-line {
+            --color-line: rgba(175, 82, 222, 0.4);
+            --color-arrow: rgba(175, 82, 222, 0.8);
+        }
+        
+        .stage-row.final-stage .step-line {
+            --color-line: rgba(134, 134, 139, 0.3);
+            --color-arrow: rgba(134, 134, 139, 0.6);
+        }
+
+        /* ================= 中心节点 ================= */
+        .node-center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .node-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--card-bg);
+            border: 3px solid #d1d1d6;
+            position: relative;
+            z-index: 2;
+            transition: all 0.3s ease;
+        }
+
+        .stage-row:hover .node-dot {
+            border-color: var(--text-primary);
+            transform: scale(1.3);
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        /* ================= 卡片基础样式 ================= */
+        .card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.03);
+            border: 1px solid rgba(0,0,0,0.04);
+            position: relative;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 36px rgba(0,0,0,0.06);
+        }
+
+        /* 人类卡片 (左侧) */
+        .human-card { border-left: 4px solid var(--human-main); text-align: right; }
+        .human-card::after {
+            content: ''; position: absolute; top: 50%; right: -20px;
+            width: 20px; height: 2px; background: rgba(0, 122, 255, 0.3); transform: translateY(-50%);
+        }
+
+        /* AI卡片 (右侧) */
+        .ai-card { border-left: 4px solid var(--ai-main); }
+        .ai-card::before {
+            content: ''; position: absolute; top: 50%; left: -20px;
+            width: 20px; height: 2px; background: rgba(255, 149, 0, 0.3); transform: translateY(-50%);
+        }
+
+        /* 不活动的卡片 */
+        .card.inactive {
+            opacity: 0.4; filter: grayscale(1); background: rgba(255,255,255,0.5); border: 1px dashed #d1d1d6;
+        }
+
+        /* 高亮循环卡片 */
+        .card.highlight-loop { border: 2px solid var(--accent-loop); background: linear-gradient(to bottom right, #ffffff, #fffcf5); }
+
+        /* 卡片排版 */
+        .card-header {
+            font-size: 18px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+        }
+        .human-card .card-header { justify-content: flex-end; color: var(--human-main); }
+        .ai-card .card-header { color: var(--ai-main); }
+
+        .action-list { list-style: none; font-size: 13px; color: var(--text-primary); line-height: 1.6; }
+        .action-list li { margin-bottom: 12px; }
+        
+        /* 数据流与文件标签 */
+        .data-flow {
+            background: #f5f5f7; padding: 10px; border-radius: 8px; margin-top: 10px; text-align: left;
+            border-left: 3px solid #d1d1d6;
+        }
+        .data-flow-title { font-size: 11px; font-weight: 600; color: #86868b; text-transform: uppercase; margin-bottom: 6px; }
+        
+        .doc-tag {
+            display: inline-block; background: #e5e5ea; color: #1d1d1f; padding: 3px 8px;
+            border-radius: 4px; font-family: "SF Mono", Consolas, monospace; font-size: 12px; font-weight: 600;
+            margin: 2px 0; border: 1px solid #d1d1d6;
+        }
+
+        /* Skill 标签 */
+        .skills-container { margin-top: 16px; padding-top: 12px; border-top: 1px dashed rgba(0,0,0,0.08); display: flex; flex-wrap: wrap; gap: 8px; }
+        .skill-tag {
+            background: var(--ai-main); color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 12px;
+            font-weight: 600; font-family: "SF Mono", Consolas, monospace; box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3);
+        }
+        .skill-tag::before { content: '⚙️ '; }
+
+        /* 产出物区域 */
+        .output-row { 
+            display: flex; 
+            justify-content: center; 
+            margin-top: -30px; 
+            margin-bottom: 50px; 
+            margin-left: 240px; /* 补偿左侧标注区的宽度 */
+            position: relative; 
+            z-index: 3; 
+        }
+        
+        .output-box {
+            background: #1d1d1f; color: #ffffff; padding: 10px 24px; border-radius: 12px; font-size: 13px; font-weight: 600;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 8px; font-family: "SF Mono", Consolas, monospace;
+        }
+        
+        .loop-badge {
+            display: inline-block; background: var(--accent-loop); color: #fff; font-size: 11px; padding: 2px 6px;
+            border-radius: 4px; margin-bottom: 8px; font-weight: 700;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 900px) {
+            .timeline-line { left: 30px; transform: none; }
+            .stage-row { 
+                grid-template-columns: 1fr; 
+                gap: 16px; 
+                padding-left: 60px; 
+                margin-bottom: 80px; 
+            }
+            .step-indicator { padding-right: 0; margin-bottom: 10px; justify-content: flex-start; }
+            .step-text { display: flex; align-items: baseline; gap: 12px; }
+            .step-num { margin-bottom: 0; }
+            .step-line { display: none; } /* 移动端隐藏渐进线 */
+            .node-center { position: absolute; left: 8px; top: 40px; }
+            .human-card { border-left: 4px solid var(--human-main); text-align: left; }
+            .human-card .card-header { justify-content: flex-start; }
+            .human-card::after, .ai-card::before { display: none; }
+            .output-row { margin-top: -10px; margin-left: 0; padding-left: 60px; justify-content: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="canvas-toolbar">
+        <div class="toolbar-title">SOP 架构：Harnessing Engineering V3 (全数据流版)</div>
+        <div class="legend">
+            <div class="legend-item"><div class="dot human"></div> 人类动作</div>
+            <div class="legend-item"><div class="dot ai"></div> Agent Skill</div>
+        </div>
+    </div>
+
+    <div class="canvas-container">
+        <!-- 时间轴 -->
+        <div class="timeline-line"></div>
+
+        <!-- S1 -->
+        <div class="stage-row">
+            <div class="step-indicator">
+                <div class="step-text">
+                    <div class="step-num">STEP 01</div>
+                    <div class="step-name">意图定调</div>
+                </div>
+                <div class="step-line"></div>
+            </div>
+            <div class="card human-card">
+                <div class="card-header">消化与构思</div>
+                <ul class="action-list">
+                    <li>整理并消化接收到的需求。手写项目初步创意响应需求。</li>
+                </ul>
+            </div>
+            <div class="node-center"><div class="node-dot"></div></div>
+            <div class="card ai-card inactive"><div class="card-header">Agent 待命</div></div>
+        </div>
+        <div class="output-row">
+            <div class="output-box" style="background: var(--human-main);">📄 1.1-Requirement ➔ 📄 1.2-Ideation</div>
+        </div>
+
+        <!-- S2 -->
+        <div class="stage-row">
+            <div class="step-indicator">
+                <div class="step-text">
+                    <div class="step-num">STEP 02</div>
+                    <div class="step-name">框架分析</div>
+                </div>
+                <div class="step-line"></div>
+            </div>
+            <div class="card human-card"><div class="card-header">下发设计指令</div><ul class="action-list"><li>提供 1.2-Ideation 作为输入，要求生成架构。</li></ul></div>
+            <div class="node-center"><div class="node-dot"></div></div>
+            <div class="card ai-card">
+                <div class="card-header">分析与架构设计</div>
+                <div class="data-flow"><div class="data-flow-title">Input:</div><span class="doc-tag">1.2-Ideation</span></div>
+                <div class="skills-container"><span class="skill-tag">theo-aiedu-analysis</span></div>
+            </div>
+        </div>
+        <div class="output-row"><div class="output-box">📑 2.1-framework</div></div>
+
+        <!-- S3 -->
+        <div class="stage-row">
+            <div class="step-indicator">
+                <div class="step-text">
+                    <div class="step-num">STEP 03</div>
+                    <div class="step-name">专项研究</div>
+                </div>
+                <div class="step-line"></div>
+            </div>
+            <div class="card human-card"><div class="card-header">引导模块化发散</div><ul class="action-list"><li>指令 Agent 针对架构书逐个模块专项研究。</li></ul></div>
+            <div class="node-center"><div class="node-dot"></div></div>
+            <div class="card ai-card">
+                <div class="card-header">深度头脑风暴</div>
+                <div class="data-flow"><div class="data-flow-title">Input:</div><span class="doc-tag">2.1-framework</span></div>
+                <div class="skills-container"><span class="skill-tag">theo-aiedu-brainstorm</span></div>
+            </div>
+        </div>
+        <div class="output-row"><div class="output-box">📂 2.2-brainstorm-fold</div></div>
+
+        <!-- S4 -->
+        <div class="stage-row loop-stage">
+            <div class="step-indicator">
+                <div class="step-text">
+                    <div class="step-num">STEP 04</div>
+                    <div class="step-name">收敛叙事</div>
+                </div>
+                <div class="step-line"></div>
+            </div>
+            <div class="card human-card highlight-loop">
+                <div class="loop-badge">🔄 驾驭循环核心区</div>
+                <div class="card-header">评价与判断</div>
+                <ul class="action-list">
+                    <li>基于初稿提供个人视角的严厉评价、逻辑审查，并要求修改。</li>
+                    <li>循环拉锯：评价 -> 修改 -> 评价，直至满意。</li>
+                </ul>
+            </div>
+            <div class="node-center"><div class="node-dot"></div></div>
+            <div class="card ai-card">
+                <div class="card-header">叙事重构与打磨</div>
+                <div class="data-flow">
+                    <div class="data-flow-title">Combined Inputs:</div>
+                    <span class="doc-tag">1.2-Ideation</span> + <span class="doc-tag">2.1-framework</span> + <span class="doc-tag">2.2-brainstorm-fold</span>
+                </div>
+                <ul class="action-list" style="margin-top:10px;">
+                    <li>输出初稿：<span class="doc-tag" style="background:#fff3e0;">3.1-script-raft-v1.0</span></li>
+                    <li>响应人类反馈进行持续修改迭代。</li>
+                </ul>
+                <div class="skills-container"><span class="skill-tag">theo-aiedu-try</span></div>
+            </div>
+        </div>
+        <div class="output-row">
+            <div class="output-box" style="background: linear-gradient(135deg, var(--human-main), var(--ai-main)); box-shadow: 0 8px 20px rgba(255, 149, 0, 0.4); border:none;">
+                🎯 3.2-script-final (最终讲课口语稿)
+            </div>
+        </div>
+
+        <!-- S5 -->
+        <div class="stage-row final-stage">
+            <div class="step-indicator">
+                <div class="step-text">
+                    <div class="step-num">STEP 05</div>
+                    <div class="step-name">自动化交付</div>
+                </div>
+                <div class="step-line"></div>
+            </div>
+            <div class="card human-card inactive"><div class="card-header">验收成果</div></div>
+            <div class="node-center"><div class="node-dot"></div></div>
+            <div class="card ai-card">
+                <div class="card-header">全模态物料生成</div>
+                <div class="data-flow"><div class="data-flow-title">Core Source:</div><span class="doc-tag">3.2-script-final</span></div>
+                <div class="skills-container">
+                    <span class="skill-tag">theo-aiedu-output-ppt</span>
+                    <span class="skill-tag">theo-aiedu-output-website</span>
+                    <span class="skill-tag">theo-aiedu-output-card</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="output-row">
+            <div class="output-box" style="background: #000;">🚀 PPT / Website / Cards 生成完毕</div>
+        </div>
+
+    </div>
+</body>
+</html>
